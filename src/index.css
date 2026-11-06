@@ -1,0 +1,788 @@
+import React, { useEffect, useMemo, useState } from 'react';
+import { BrowserRouter, Link, Navigate, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom';
+import { AnimatePresence, motion } from 'framer-motion';
+import { firebaseEnabled } from './firebase';
+
+const gameCatalog = [
+  {
+    id: 'aviator',
+    name: 'Aviator X',
+    category: 'Arcade',
+    rating: 4.9,
+    tag: 'High Energy',
+    color: '#ff9c2c',
+    description: 'Fast-pacedMultiplier challenge designed for smooth mobile play.',
+    descriptionBn: 'দ্রুত-গতির মাল্টিপ্লায়ার চ্যালেঞ্জ, মোবাইলের জন্য উপযুক্ত।',
+    type: 'entertainment',
+    points: 120,
+  },
+  {
+    id: 'crash',
+    name: 'Crash Rush',
+    category: 'Action',
+    rating: 4.8,
+    tag: 'Time Attack',
+    color: '#ff6a3d',
+    description: 'Real-time challenge with tactical decision making and precision.',
+    descriptionBn: 'সঠিক সিদ্ধান্ত ও নির্ভুলতা নিয়ে তৈরি দ্রুত Time Attack খেলা।',
+    type: 'entertainment',
+    points: 90,
+  },
+  {
+    id: 'spin',
+    name: 'Lucky Spin',
+    category: 'Lucky Draw',
+    rating: 4.7,
+    tag: 'Daily Bonus',
+    color: '#ffa94d',
+    description: 'A reward rich wheel with bonuses, streaks, and instant prizes.',
+    descriptionBn: 'বোনাস, স্ট্রিক ও ইন্সট্যান্ট পুরস্কারের জন্য লাকি স্পিন।',
+    type: 'reward',
+    points: 75,
+  },
+  {
+    id: 'casino',
+    name: 'Jet Royale',
+    category: 'Casino',
+    rating: 4.9,
+    tag: 'Feature Pack',
+    color: '#ffb84d',
+    description: 'Premium table game experience with immersive visuals.',
+    descriptionBn: 'সম্পূর্ণ প্রিমিয়াম ছন্দে টেবিল গেমের অভিজ্ঞতা।',
+    type: 'entertainment',
+    points: 140,
+  },
+  {
+    id: 'racer',
+    name: 'Neon Drift',
+    category: 'Racing',
+    rating: 4.8,
+    tag: 'Performance',
+    color: '#ff8248',
+    description: 'Street racing with neon skyways and responsive controls.',
+    descriptionBn: 'নিওন সাইওয়ে ও দ্রুত কন্ট্রোল সহ স্ট্রিট রেসিং।',
+    type: 'arcade',
+    points: 100,
+  },
+  {
+    id: 'puzzle',
+    name: 'Pixel Quest',
+    category: 'Puzzle',
+    rating: 4.6,
+    tag: 'Brain Boost',
+    color: '#ffb15d',
+    description: 'Brain training and strategy challenge with progress rewards.',
+    descriptionBn: 'ব্রেন ট্রেনিং ও স্ট্র্যাটেজি চ্যালেঞ্জ, প্রগ্রেস রিওয়ার্ড সহ।',
+    type: 'cognitive',
+    points: 80,
+  },
+];
+
+const defaultUsers = [
+  {
+    id: 'admin-001',
+    username: 'admin',
+    email: 'admin@9a999.ck',
+    mobile: '01800000000',
+    pin: '111111',
+    role: 'admin',
+    points: 2500,
+    accountId: '9A999-ADMIN-001',
+    avatar: 'A',
+  },
+];
+
+const getStoredUsers = () => {
+  try {
+    const raw = localStorage.getItem('9a999_users');
+    return raw ? JSON.parse(raw) : defaultUsers;
+  } catch {
+    return defaultUsers;
+  }
+};
+
+const getStoredCurrentUser = () => {
+  try {
+    const raw = localStorage.getItem('9a999_current_user');
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+};
+
+const recentActivities = [
+  { title: 'Aviator X Challenge', detail: '+120 Virtual Points', time: '2 min ago' },
+  { title: 'Daily Bonus Collected', detail: '+50 Virtual Points', time: '1 hour ago' },
+  { title: 'Lucky Spin Reward', detail: 'Orange Chest Unlocked', time: 'Today' },
+];
+
+const depositOptions = [
+  { id: 'starter', title: 'Starter Pack', points: 250, bonus: '+25', cost: 'Free' },
+  { id: 'pro', title: 'Pro Pack', points: 750, bonus: '+70', cost: 'Free' },
+  { id: 'elite', title: 'Elite Pack', points: 1500, bonus: '+180', cost: 'Free' },
+  { id: 'vip', title: 'VIP Pack', points: 3200, bonus: '+400', cost: 'Free' },
+];
+
+const rewardOptions = [
+  { id: 'skin', title: 'Orange Premium Skin', type: 'Avatar Upgrade', points: 600 },
+  { id: 'badge', title: 'Gold Badge', type: 'Profile Highlight', points: 480 },
+  { id: 'frame', title: 'Neon Frame', type: 'Profile Frame', points: 700 },
+  { id: 'theme', title: 'Night Mode Theme', type: 'UI Theme', points: 820 },
+];
+
+const supportData = {
+  hotline: '01846567435',
+  email: 'support@9a999.ck',
+  hours: 'Daily: 9:00 AM – 11:00 PM',
+};
+
+const pageVariants = {
+  initial: { opacity: 0, y: 20 },
+  in: { opacity: 1, y: 0 },
+  out: { opacity: 0, y: -20 },
+};
+
+function App() {
+  const [users, setUsers] = useState(getStoredUsers);
+  const [currentUser, setCurrentUser] = useState(getStoredCurrentUser);
+
+  useEffect(() => {
+    localStorage.setItem('9a999_users', JSON.stringify(users));
+  }, [users]);
+
+  useEffect(() => {
+    if (currentUser) {
+      localStorage.setItem('9a999_current_user', JSON.stringify(currentUser));
+    } else {
+      localStorage.removeItem('9a999_current_user');
+    }
+  }, [currentUser]);
+
+  const loginUser = (identifier, pin) => {
+    const normalized = identifier.trim();
+    const foundUser = users.find(
+      (user) =>
+        user.username.toLowerCase() === normalized.toLowerCase() ||
+        user.email.toLowerCase() === normalized.toLowerCase() ||
+        user.mobile === normalized ||
+        user.accountId.toLowerCase() === normalized.toLowerCase()
+    );
+
+    if (!foundUser) {
+      return { success: false, message: 'User not found. Please register first.' };
+    }
+
+    if (foundUser.pin !== pin.trim()) {
+      return { success: false, message: 'Incorrect PIN. Please try again.' };
+    }
+
+    setCurrentUser(foundUser);
+    return { success: true, message: 'Login successful.' };
+  };
+
+  const registerUser = (form) => {
+    const username = form.username.trim();
+    const email = form.email.trim();
+    const mobile = form.mobile.trim();
+    const pin = form.pin.trim();
+
+    if (!username || !email || !mobile || !pin) {
+      return { success: false, message: 'Please complete all fields.' };
+    }
+
+    const duplicate = users.find(
+      (user) =>
+        user.username.toLowerCase() === username.toLowerCase() ||
+        user.email.toLowerCase() === email.toLowerCase() ||
+        user.mobile === mobile
+    );
+
+    if (duplicate) {
+      return { success: false, message: 'This username or contact already exists.' };
+    }
+
+    const accountId = `9A999-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
+    const newUser = {
+      id: `user-${Date.now()}`,
+      username,
+      email,
+      mobile,
+      pin,
+      role: 'player',
+      points: 1200,
+      accountId,
+      avatar: username.charAt(0).toUpperCase(),
+    };
+
+    setUsers((prev) => [newUser, ...prev]);
+    setCurrentUser(newUser);
+    return { success: true, message: 'Registration successful.', user: newUser };
+  };
+
+  const updateUserPoints = (delta, reason) => {
+    if (!currentUser) return;
+    const updatedUsers = users.map((user) =>
+      user.id === currentUser.id ? { ...user, points: Math.max(0, user.points + delta) } : user
+    );
+    setUsers(updatedUsers);
+    const refreshedUser = updatedUsers.find((user) => user.id === currentUser.id);
+    setCurrentUser(refreshedUser);
+    return refreshedUser;
+  };
+
+  const logout = () => setCurrentUser(null);
+
+  return (
+    <BrowserRouter>
+      <AppShell
+        currentUser={currentUser}
+        users={users}
+        loginUser={loginUser}
+        registerUser={registerUser}
+        updateUserPoints={updateUserPoints}
+        logout={logout}
+      />
+    </BrowserRouter>
+  );
+}
+
+function AppShell({ currentUser, users, loginUser, registerUser, updateUserPoints, logout }) {
+  const location = useLocation();
+
+  return (
+    <div className="app-shell">
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={location.pathname}
+          variants={pageVariants}
+          initial="initial"
+          animate="in"
+          exit="out"
+          transition={{ duration: 0.25 }}
+        >
+          <Routes>
+            <Route path="/login" element={currentUser ? <Navigate to="/" replace /> : <LoginPage loginUser={loginUser} />} />
+            <Route path="/register" element={currentUser ? <Navigate to="/" replace /> : <RegisterPage registerUser={registerUser} />} />
+            <Route path="/" element={currentUser ? <HomePage currentUser={currentUser} /> : <Navigate to="/login" replace />} />
+            <Route path="/games" element={currentUser ? <GamesPage currentUser={currentUser} updateUserPoints={updateUserPoints} /> : <Navigate to="/login" replace />} />
+            <Route path="/games/:gameId" element={currentUser ? <GameDetailPage currentUser={currentUser} updateUserPoints={updateUserPoints} /> : <Navigate to="/login" replace />} />
+            <Route path="/deposit" element={currentUser ? <DepositPage currentUser={currentUser} updateUserPoints={updateUserPoints} /> : <Navigate to="/login" replace />} />
+            <Route path="/rewards" element={currentUser ? <RewardsPage currentUser={currentUser} updateUserPoints={updateUserPoints} /> : <Navigate to="/login" replace />} />
+            <Route path="/history" element={currentUser ? <HistoryPage currentUser={currentUser} /> : <Navigate to="/login" replace />} />
+            <Route path="/profile" element={currentUser ? <ProfilePage currentUser={currentUser} logout={logout} /> : <Navigate to="/login" replace />} />
+            <Route path="/support" element={currentUser ? <SupportPage /> : <Navigate to="/login" replace />} />
+            <Route path="/admin" element={currentUser?.role === 'admin' ? <AdminPage users={users} /> : <Navigate to="/login" replace />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </motion.div>
+      </AnimatePresence>
+
+      {currentUser && <BottomNavigation />}
+    </div>
+  );
+}
+
+function LoginPage({ loginUser }) {
+  const navigate = useNavigate();
+  const [form, setForm] = useState({ identifier: '', pin: '' });
+  const [message, setMessage] = useState('');
+
+  const handleChange = (event) => {
+    const { name, value } = event.target;
+    setForm((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleSubmit = (event) => {
+    event.preventDefault();
+    const result = loginUser(form.identifier, form.pin);
+    setMessage(result.message);
+    if (result.success) {
+      setTimeout(() => navigate('/'), 500);
+    }
+  };
+
+  return (
+    <div className="auth-shell">
+      <div className="auth-card">
+        <div className="brand-block">
+          <div className="logo-badge">9A</div>
+          <div>
+            <p className="eyebrow">Premium Gaming Portal</p>
+            <h1>9A999.ck</h1>
+          </div>
+        </div>
+
+        <h2>Welcome Back</h2>
+        <p className="muted">Login to your gaming dashboard</p>
+
+        <form onSubmit={handleSubmit} className="auth-form">
+          <label>
+            User Name / Gmail / Mobile
+            <input
+              name="identifier"
+              value={form.identifier}
+              onChange={handleChange}
+              placeholder="Username or mobile"
+            />
+          </label>
+
+          <label>
+            6-digit PIN
+            <input
+              name="pin"
+              type="password"
+              value={form.pin}
+              onChange={handleChange}
+              placeholder="******"
+              maxLength={6}
+            />
+          </label>
+
+          <button className="primary-btn" type="submit">Login</button>
+          <button type="button" className="secondary-btn" onClick={() => navigate('/register')}>
+            Registration
+          </button>
+
+          <div className="inline-link-row">
+            <button type="button" className="text-btn" onClick={() => setMessage('Password reset link sent to your Gmail.')}>Forgot Password</button>
+          </div>
+        </form>
+
+        {message && <div className="status-box">{message}</div>}
+
+        <div className="demo-badge">Firebase-ready • Mobile responsive</div>
+      </div>
+    </div>
+  );
+}
+
+function RegisterPage({ registerUser }) {
+  const navigate = useNavigate();
+  const [form, setForm] = useState({ username: '', email: '', mobile: '', pin: '' });
+  const [message, setMessage] = useState('');
+
+  const handleChange = (event) => {
+    const { name, value } = event.target;
+    setForm((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleSubmit = (event) => {
+    event.preventDefault();
+    const result = registerUser(form);
+    setMessage(result.message);
+    if (result.success) {
+      setTimeout(() => navigate('/'), 500);
+    }
+  };
+
+  return (
+    <div className="auth-shell">
+      <div className="auth-card">
+        <div className="brand-block">
+          <div className="logo-badge">9A</div>
+          <div>
+            <p className="eyebrow">Create your account</p>
+            <h1>9A999.ck</h1>
+          </div>
+        </div>
+
+        <h2>Register</h2>
+        <p className="muted">Start with your free virtual points</p>
+
+        <form onSubmit={handleSubmit} className="auth-form">
+          <label>
+            User Name
+            <input name="username" value={form.username} onChange={handleChange} placeholder="User Name" />
+          </label>
+
+          <label>
+            Gmail
+            <input name="email" type="email" value={form.email} onChange={handleChange} placeholder="you@example.com" />
+          </label>
+
+          <label>
+            Mobile Number
+            <input name="mobile" type="tel" value={form.mobile} onChange={handleChange} placeholder="01846567435" />
+          </label>
+
+          <label>
+            6-digit PIN
+            <input name="pin" type="password" value={form.pin} onChange={handleChange} placeholder="******" maxLength={6} />
+          </label>
+
+          <button className="primary-btn" type="submit">Create Account</button>
+          <button type="button" className="secondary-btn" onClick={() => navigate('/login')}>Back to Login</button>
+        </form>
+
+        {message && <div className="status-box">{message}</div>}
+      </div>
+    </div>
+  );
+}
+
+function HomePage({ currentUser }) {
+  const points = currentUser.points ?? 0;
+
+  return (
+    <div className="page-shell">
+      <header className="topbar">
+        <div>
+          <p className="eyebrow">Gaming Dashboard</p>
+          <h1>9A999.ck</h1>
+        </div>
+        <div className="avatar-circle">{currentUser.avatar || currentUser.username.charAt(0).toUpperCase()}</div>
+      </header>
+
+      <section className="hero-card">
+        <div>
+          <p className="eyebrow">Welcome</p>
+          <h2>Hi, {currentUser.username}</h2>
+        </div>
+        <div className="points-pill">{points} pts</div>
+      </section>
+
+      <div className="stats-grid">
+        <StatCard label="Profile" value={currentUser.accountId} />
+        <StatCard label="Virtual Points" value={`${points}`} />
+        <StatCard label="Status" value={currentUser.role === 'admin' ? 'Admin' : 'Player'} />
+      </div>
+
+      <section className="promo-card">
+        <div>
+          <p className="eyebrow">Featured</p>
+          <h3>Premium Weekend Rush</h3>
+          <p>Free entertainment challenge with daily rewards and streak bonuses.</p>
+        </div>
+        <button className="primary-btn small">Play Now</button>
+      </section>
+
+      <section className="section-block">
+        <div className="section-header">
+          <h3>Popular Games</h3>
+          <Link to="/games">View All</Link>
+        </div>
+        <div className="game-list compact">
+          {gameCatalog.slice(0, 3).map((game) => (
+            <Link key={game.id} to={`/games/${game.id}`} className="game-card slim" style={{ '--accent': game.color }}>
+              <div className="game-emoji">🎮</div>
+              <div>
+                <strong>{game.name}</strong>
+                <span>{game.category}</span>
+              </div>
+              <em>{game.points} pts</em>
+            </Link>
+          ))}
+        </div>
+      </section>
+
+      <section className="section-block">
+        <div className="section-header">
+          <h3>Recent Activities</h3>
+          <Link to="/history">See All</Link>
+        </div>
+        <div className="activity-list">
+          {recentActivities.map((item, index) => (
+            <div key={index} className="activity-row">
+              <div className="dot" />
+              <div>
+                <strong>{item.title}</strong>
+                <p>{item.detail}</p>
+              </div>
+              <span>{item.time}</span>
+            </div>
+          ))}
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function GamesPage({ currentUser, updateUserPoints }) {
+  return (
+    <div className="page-shell">
+      <header className="topbar">
+        <div>
+          <p className="eyebrow">Game Library</p>
+          <h1>Explore Games</h1>
+        </div>
+        <div className="points-pill">{currentUser.points} pts</div>
+      </header>
+
+      <div className="tab-row">
+        <span className="chip active">All</span>
+        <span className="chip">Arcade</span>
+        <span className="chip">Action</span>
+        <span className="chip">Puzzle</span>
+      </div>
+
+      <div className="games-grid">
+        {gameCatalog.map((game) => (
+          <Link key={game.id} to={`/games/${game.id}`} className="game-tile" style={{ '--accent': game.color }}>
+            <div className="game-cover" />
+            <div className="game-info">
+              <span className="game-tag">{game.category}</span>
+              <h3>{game.name}</h3>
+              <p>{game.description}</p>
+              <div className="game-meta">
+                <span>⭐ {game.rating}</span>
+                <span>{game.points} pts</span>
+              </div>
+            </div>
+          </Link>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function GameDetailPage({ currentUser, updateUserPoints }) {
+  const { gameId } = useParams();
+  const game = gameCatalog.find((entry) => entry.id === gameId) || gameCatalog[0];
+  const navigate = useNavigate();
+
+  const handlePlay = () => {
+    updateUserPoints(game.points, `Played ${game.name}`);
+    navigate('/games');
+  };
+
+  return (
+    <div className="page-shell">
+      <header className="topbar">
+        <button className="back-btn" onClick={() => navigate('/games')}>← Back</button>
+        <div className="points-pill">{currentUser.points} pts</div>
+      </header>
+
+      <section className="detail-card" style={{ '--accent': game.color }}>
+        <div className="detail-cover" />
+        <div className="detail-info">
+          <span className="game-tag">{game.category}</span>
+          <h1>{game.name}</h1>
+          <p>{game.descriptionBn}</p>
+          <div className="game-meta big">
+            <span>⭐ {game.rating}</span>
+            <span>{game.points} pts reward</span>
+          </div>
+          <button className="primary-btn" onClick={handlePlay}>Play Free Game</button>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function DepositPage({ currentUser, updateUserPoints }) {
+  return (
+    <div className="page-shell">
+      <header className="topbar">
+        <div>
+          <p className="eyebrow">Virtual Points</p>
+          <h1>Deposit / Free Points</h1>
+        </div>
+        <div className="points-pill">{currentUser.points} pts</div>
+      </header>
+
+      <section className="card-panel">
+        <div className="section-header">
+          <h3>Daily Bonus</h3>
+          <span className="chip active">+50</span>
+        </div>
+        <button className="primary-btn" onClick={() => updateUserPoints(50, 'Daily Bonus')}>Claim Daily Bonus</button>
+      </section>
+
+      <section className="section-block">
+        <div className="section-header">
+          <h3>Select Points Pack</h3>
+        </div>
+        <div className="stack-list">
+          {depositOptions.map((option) => (
+            <div key={option.id} className="stack-item">
+              <div>
+                <strong>{option.title}</strong>
+                <p>{option.points} points + {option.bonus} bonus</p>
+              </div>
+              <button className="secondary-btn small" onClick={() => updateUserPoints(option.points + Number(option.bonus.replace('+', '')), 'Free Points Pack')}>
+                {option.cost}
+              </button>
+            </div>
+          ))}
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function RewardsPage({ currentUser, updateUserPoints }) {
+  return (
+    <div className="page-shell">
+      <header className="topbar">
+        <div>
+          <p className="eyebrow">Rewards Center</p>
+          <h1>Redeem Rewards</h1>
+        </div>
+        <div className="points-pill">{currentUser.points} pts</div>
+      </header>
+
+      <section className="section-block">
+        <div className="stack-list">
+          {rewardOptions.map((reward) => (
+            <div key={reward.id} className="stack-item reward-item">
+              <div>
+                <strong>{reward.title}</strong>
+                <p>{reward.type}</p>
+              </div>
+              <div className="reward-box">
+                <span>{reward.points} pts</span>
+                <button className="secondary-btn small" onClick={() => updateUserPoints(-reward.points, `Redeemed ${reward.title}`)}>
+                  Redeem
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function HistoryPage({ currentUser }) {
+  const history = [
+    { action: 'Daily Bonus', amount: '+50', date: 'Today' },
+    { action: 'Aviator X Play', amount: '+120', date: 'Yesterday' },
+    { action: 'Theme Reward', amount: '-600', date: '2 days ago' },
+  ];
+
+  return (
+    <div className="page-shell">
+      <header className="topbar">
+        <div>
+          <p className="eyebrow">Account History</p>
+          <h1>Game & Rewards History</h1>
+        </div>
+        <div className="points-pill">{currentUser.points} pts</div>
+      </header>
+
+      <div className="history-list">
+        {history.map((item, idx) => (
+          <div key={idx} className="history-item">
+            <div>
+              <strong>{item.action}</strong>
+              <p>{item.date}</p>
+            </div>
+            <span className={item.amount.startsWith('-') ? 'negative' : 'positive'}>{item.amount}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ProfilePage({ currentUser, logout }) {
+  return (
+    <div className="page-shell">
+      <header className="topbar">
+        <div>
+          <p className="eyebrow">Profile</p>
+          <h1>Account Details</h1>
+        </div>
+        <div className="avatar-circle big">{currentUser.avatar || currentUser.username.charAt(0).toUpperCase()}</div>
+      </header>
+
+      <section className="profile-card">
+        <div className="profile-row"><span>User Name</span><strong>{currentUser.username}</strong></div>
+        <div className="profile-row"><span>Gmail / Mobile</span><strong>{currentUser.email || currentUser.mobile}</strong></div>
+        <div className="profile-row"><span>Account ID</span><strong>{currentUser.accountId}</strong></div>
+        <div className="profile-row"><span>Virtual Points</span><strong>{currentUser.points}</strong></div>
+        <div className="profile-row"><span>Game History</span><strong>14 sessions</strong></div>
+        <div className="profile-row"><span>Settings</span><strong>Security Enabled</strong></div>
+      </section>
+
+      <div className="profile-actions">
+        <button className="secondary-btn" type="button">Settings</button>
+        <button className="primary-btn" type="button" onClick={logout}>Logout</button>
+      </div>
+    </div>
+  );
+}
+
+function SupportPage() {
+  return (
+    <div className="page-shell">
+      <header className="topbar">
+        <div>
+          <p className="eyebrow">Help & Support</p>
+          <h1>আমাদের সাথে কথা বলুন</h1>
+        </div>
+      </header>
+
+      <section className="support-card">
+        <h2>Support Hotline</h2>
+        <p className="hotline">{supportData.hotline}</p>
+        <div className="support-list">
+          <div><span>Email</span><strong>{supportData.email}</strong></div>
+          <div><span>Hours</span><strong>{supportData.hours}</strong></div>
+          <div><span>Website</span><strong>9A999.ck</strong></div>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function AdminPage({ users }) {
+  const adminStats = [
+    { label: 'Users', value: users.length },
+    { label: 'Active Players', value: '84%' },
+    { label: 'Virtual Points Issued', value: '18.6K' },
+    { label: 'Daily Bonus', value: 'Active' },
+  ];
+
+  return (
+    <div className="page-shell admin-page">
+      <header className="topbar">
+        <div>
+          <p className="eyebrow">Admin Panel</p>
+          <h1>Management Console</h1>
+        </div>
+      </header>
+
+      <div className="stats-grid admin-grid">
+        {adminStats.map((stat) => (
+          <StatCard key={stat.label} label={stat.label} value={stat.value} />
+        ))}
+      </div>
+
+      <section className="admin-section">
+        <h3>Operations</h3>
+        <div className="admin-list">
+          <span>User Management</span>
+          <span>Game Management</span>
+          <span>Virtual Points Management</span>
+          <span>Daily Bonus Management</span>
+          <span>Banner Management</span>
+          <span>User Activity History</span>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function BottomNavigation() {
+  return (
+    <nav className="bottom-nav">
+      <Link to="/">Home</Link>
+      <Link to="/games">Games</Link>
+      <Link to="/rewards">Rewards</Link>
+      <Link to="/history">History</Link>
+      <Link to="/profile">Profile</Link>
+    </nav>
+  );
+}
+
+function StatCard({ label, value }) {
+  return (
+    <div className="stat-card">
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </div>
+  );
+}
+
+export default App;
